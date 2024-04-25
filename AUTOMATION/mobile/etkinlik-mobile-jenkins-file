@@ -1,0 +1,77 @@
+def reportName = 'Lokal Mobile Test Report'
+pipeline {
+    agent any
+    parameters {
+        string(name: 'TagName', defaultValue: '@smoke', description: '')
+        string(name: 'DeviceFarmAccessKey', defaultValue: '', description: 'Device Farm AccessKey')
+        gitParameter branch: '',
+                branchFilter: 'origin/(.*)',
+                useRepository: '.*.git',
+                defaultValue: 'master',
+                description: 'Select your branch',
+                name: 'BRANCH',
+                quickFilterEnabled: false,
+                selectedValue: 'DEFAULT',
+                sortMode: 'DESCENDING_SMART',
+                tagFilter: '*',
+                type: 'PT_BRANCH'
+    }
+    stages {
+        stage('Slack Notification') {
+            steps {
+                script {
+                    slackSend(
+                            color: "#7aabcc",
+                            message: ":information_source: ${reportName} SMOKE job has been started at test env. => (<${env.JOB_URL}${BUILD_NUMBER}|Build Link>)"
+                    )
+                }
+            }
+        }
+        stage('Checkout') {
+            steps {
+                checkout([$class: 'GitSCM',
+                          branches: [[name: "${params.BRANCH}"]],
+                          doGenerateSubmoduleConfigurations: false,
+                          extensions: [],
+                          gitTool: 'Default',
+                          submoduleCfg: [],
+                          userRemoteConfigs: [[url: 'https://github.com/kloia/qa-day2-android-ruby.git']]
+                ])
+            }
+        }
+        stage('Running test') {
+            steps {
+                sh """
+                bundle install
+                bundle exec cucumber --tags "${params.TagName}" dai_access_key=${params.DeviceFarmAccessKey}
+                 """
+            }
+        }
+    }
+    post {
+        always {
+            allure includeProperties:
+                    false,
+                    jdk: '',
+                    results: [[path: 'output/allure-results']]
+        }
+        aborted {
+            slackSend(
+                    color: "#BCBCBC",
+                    message: ":white_check_mark: *(<${env.JOB_URL}${BUILD_NUMBER}/allure|${reportName} Aborted Test Automation Report>)*\n\n"
+            )
+        }
+        success {
+            slackSend(
+                    color: "#70FD01",
+                    message: ":white_check_mark: *(<${env.JOB_URL}${BUILD_NUMBER}/allure|${reportName} Success Test Automation Report>)*\n\n"
+            )
+        }
+        failure {
+            slackSend(
+                    color: "#FF0000",
+                    message: ":white_check_mark: *(<${env.JOB_URL}${BUILD_NUMBER}/allure|${reportName} Failure Test Automation Report>)*\n\n"
+            )
+        }
+    }
+}
