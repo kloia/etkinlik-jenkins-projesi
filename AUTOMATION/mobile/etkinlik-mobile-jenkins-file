@@ -10,7 +10,7 @@ pipeline {
                 defaultValue: 'master',
                 description: 'Select your branch',
                 name: 'BRANCH',
-                quickFilterEnabled: false,
+                quickFilterEnabled: true,
                 selectedValue: 'DEFAULT',
                 sortMode: 'DESCENDING_SMART',
                 tagFilter: '*',
